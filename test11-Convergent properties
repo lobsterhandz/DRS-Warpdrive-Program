@@ -1,0 +1,55 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import trapezoid  # Use the new method
+
+# Constants and parameters
+c = 3e8  # Speed of light
+rho_0 = 1e16  # Base density
+lambda_res = 0.75  # Nonlinear coupling strength
+omega_base = 2 * np.pi  # Base angular frequency
+k = 1.0  # Wave number
+gamma = 0.05  # Damping factor
+t_values = np.linspace(0, 10, 500)  # Time range
+x_values = np.linspace(0, 10, 500)  # Space range
+
+# Additional oscillators for "4 fundamental frequencies"
+omega_1, omega_2, omega_3, omega_4 = omega_base, 1.5 * omega_base, 2 * omega_base, 3 * omega_base
+phi = np.pi / 4  # Phase offset
+
+# Recursive density function (captures fractal-like scaling)
+def recursive_density(x, n=4):
+    if n == 0:
+        return np.ones_like(x) * rho_0
+    return rho_0 / n + recursive_density(x, n - 1) * np.sin(n * k * x)
+
+# Stress-energy tensor component T_mu_nu
+def T_mu_nu(x, t):
+    rho_t = rho_0 * np.exp(-gamma * t)  # Time-damped density
+    harmonics = sum([rho_t / n**2 * (1 + np.cos(n * omega_base * t + k * x)) for n in range(1, 5)])  # Harmonics
+    four_oscillators = lambda_res * np.prod([np.cos(omega * t + phi) for omega in [omega_1, omega_2, omega_3, omega_4]])
+    recursive_term = recursive_density(x) * np.cos(omega_base * x + k * x)
+    integral_term = trapezoid(np.cos(omega_base * x) * np.sin(k * x), x)  # Updated line
+    return rho_t + harmonics + four_oscillators + recursive_term + integral_term
+
+# Calculate T_mu_nu over space and time
+X, T = np.meshgrid(x_values, t_values)
+T_mu_nu_values = T_mu_nu(X, T)
+
+# Visualization
+plt.figure(figsize=(12, 8))
+plt.contourf(X, T, T_mu_nu_values, levels=50, cmap="coolwarm")
+plt.colorbar(label="T_mu_nu Magnitude")
+plt.title("Stress-Energy Tensor with Harmonics and Recursive Patterns")
+plt.xlabel("Space (X)")
+plt.ylabel("Time (T)")
+plt.show()
+
+# Phase space diagram
+plt.figure(figsize=(10, 6))
+plt.plot(T[0, :], T_mu_nu_values[0, :], label=f"T_mu_nu at t={t_values[0]:.1f}")
+plt.plot(T[-1, :], T_mu_nu_values[-1, :], label=f"T_mu_nu at t={t_values[-1]:.1f}")
+plt.xlabel("Space (X)")
+plt.ylabel("T_mu_nu")
+plt.title("Phase Space Diagram for T_mu_nu")
+plt.legend()
+plt.show()
